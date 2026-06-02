@@ -4,135 +4,320 @@
 <div class="container">
     <div class="page-header">
         <div>
-            <h1 class="page-title">Привет, {{ user.display_name }}!</h1>
-            <p class="page-subtitle">Ваш персональный тренер произношения</p>
+            <h1 class="page-title">Привет, {{ user.display_name }} 👋</h1>
+            <p class="page-subtitle">Продолжайте тренировать произношение</p>
         </div>
-        <div class="d-flex gap-2">
-            <a href="/tasks" class="btn btn-secondary">📚 Задания</a>
-            <a href="/history" class="btn btn-secondary">📜 История</a>
-            <a href="/upload" class="btn btn-primary">🎙 Новый анализ</a>
+        <a href="/upload" class="btn btn-primary">
+            <i data-lucide="upload" style="width:16px;height:16px;"></i>
+            Новый анализ
+        </a>
+    </div>
+
+    <div class="grid grid-3 mb-4">
+        <div class="card stat-card">
+            <div class="stat-icon" style="background:rgba(139,92,246,0.15);color:#a78bfa;">
+                <i data-lucide="bar-chart-3"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ attempts|length }}</div>
+                <div class="stat-label">Попыток</div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-icon" style="background:rgba(236,72,153,0.15);color:#f472b6;">
+                <i data-lucide="target"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ tasks|length }}</div>
+                <div class="stat-label">Активных заданий</div>
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-icon" style="background:rgba(34,197,94,0.15);color:#4ade80;">
+                <i data-lucide="trending-up"></i>
+            </div>
+            <div>
+                <div class="stat-value">
+                    {% if attempts %}
+                        {{ "%.0f"|format((attempts|sum(attribute="overall_score")) / attempts|length) }}
+                    {% else %}—{% endif %}
+                </div>
+                <div class="stat-label">Средний балл</div>
+            </div>
         </div>
     </div>
 
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-label">Всего попыток</div>
-            <div class="stat-value">{{ total_attempts }}</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Средняя оценка</div>
-            <div class="stat-value">{{ avg_score }}</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Темп речи</div>
-            <div class="stat-value" style="font-size:24px;">{{ profile.speech_rate }} сл/сек</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Высота голоса</div>
-            <div class="stat-value" style="font-size:24px;">{{ profile.avg_pitch }} Hz</div>
-        </div>
+    <div class="tab-buttons">
+        <button class="tab-button active" data-tab="tasks" type="button">🎯 Персональные задания</button>
+        <button class="tab-button" data-tab="history" type="button">📈 История</button>
     </div>
 
-    {% if weak_sounds %}
-    <div class="card mb-4">
-        <h3 class="card-title">🎯 Ваши проблемные звуки (по калибровке)</h3>
-        <div class="d-flex gap-2 mt-3" style="flex-wrap:wrap;">
-            {% for s in weak_sounds %}
-                <span class="badge badge-warning" style="font-size:13px;padding:6px 12px;">{{ s }}</span>
+    <!-- Tab: задания -->
+    <div id="tab-tasks">
+        <div class="card mb-4">
+            <h3 style="margin-top:0;">Фильтры</h3>
+            <form method="get" action="/dashboard" class="d-flex gap-3 align-center" style="flex-wrap:wrap;">
+                <div style="flex:1;min-width:180px;">
+                    <label class="text-muted" style="font-size:12px;">Сложность</label>
+                    <select name="difficulty" class="form-control">
+                        <option value="">Все</option>
+                        <option value="easy" {% if filter_difficulty == 'easy' %}selected{% endif %}>Лёгкие</option>
+                        <option value="medium" {% if filter_difficulty == 'medium' %}selected{% endif %}>Средние</option>
+                        <option value="hard" {% if filter_difficulty == 'hard' %}selected{% endif %}>Сложные</option>
+                    </select>
+                </div>
+                <div style="flex:1;min-width:180px;">
+                    <label class="text-muted" style="font-size:12px;">Звук</label>
+                    <select name="sound" class="form-control">
+                        <option value="">Все</option>
+                        {% for s in sound_options %}
+                        <option value="{{ s }}" {% if filter_sound == s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="align-self:flex-end;display:flex;gap:8px;">
+                    <button type="submit" class="btn btn-primary">Применить</button>
+                    <a href="/dashboard" class="btn btn-secondary">Сброс</a>
+                </div>
+            </form>
+        </div>
+
+        {% if tasks %}
+        <div class="grid grid-2">
+            {% for t in tasks %}
+            <div class="card task-card"
+                 data-task-id="{{ t.id }}"
+                 data-task-title="{{ t.title }}"
+                 data-task-phrase="{{ t.target_phrase }}"
+                 data-task-sound="{{ t.target_sounds }}"
+                 data-task-difficulty="{{ t.difficulty }}"
+                 onclick="openTaskModal(this)">
+                <div class="d-flex justify-between align-center mb-3">
+                    <strong>{{ t.title }}</strong>
+                    <span class="badge {% if t.difficulty == 'hard' %}badge-danger{% elif t.difficulty == 'medium' %}badge-warning{% else %}badge-success{% endif %}">{{ t.difficulty }}</span>
+                </div>
+                <p class="text-secondary" style="font-size:14px;">{{ t.description }}</p>
+                <div class="text-muted" style="font-size:12px;margin-top:8px;">
+                    🎯 Звук: <span class="mono">{{ t.target_sounds }}</span>
+                </div>
+                <div class="mt-3" style="font-style:italic;color:var(--accent);font-size:14px;">
+                    "{{ t.target_phrase }}"
+                </div>
+                <div class="mt-3 text-muted" style="font-size:12px;">
+                    👆 Нажмите, чтобы записать произношение
+                </div>
+            </div>
             {% endfor %}
         </div>
-        <p class="text-muted mt-3" style="font-size:13px;">
-            Задания ниже подобраны специально для вашего профиля произношения.
-        </p>
+        {% else %}
+        <div class="card text-center" style="padding:40px;">
+            <p class="text-secondary">Заданий по фильтрам не найдено.</p>
+        </div>
+        {% endif %}
     </div>
-    {% endif %}
 
-    {% if scores_history %}
-    <div class="card mb-4">
-        <h3 class="card-title">📈 Динамика оценок</h3>
-        <canvas id="progressChart" height="80"></canvas>
-    </div>
-    {% endif %}
-
-    <div class="grid grid-2">
-        <div class="card">
-            <div class="d-flex justify-between align-center mb-4">
-                <h3 style="margin:0;">📚 Персональные задания</h3>
-                <a href="/tasks" class="text-secondary" style="font-size:13px;text-decoration:none;">Все задания →</a>
-            </div>
-            {% if tasks %}
-                {% for t in tasks %}
-                <div class="task-card mb-3">
-                    <div class="d-flex justify-between align-center">
-                        <strong>{{ t.title }}</strong>
-                        <span class="badge {% if t.difficulty == 'hard' %}badge-danger{% elif t.difficulty == 'medium' %}badge-warning{% else %}badge-info{% endif %}">{{ t.difficulty }}</span>
+    <!-- Tab: история -->
+    <div id="tab-history" style="display:none;">
+        {% if attempts %}
+            {% for a in attempts %}
+            <a href="/attempt/{{ a.id }}" class="card history-item">
+                <div class="d-flex justify-between align-center">
+                    <div>
+                        <strong>#{{ a.id }}</strong>
+                        <span class="text-muted" style="margin-left:8px;">{{ a.created_at.strftime("%d.%m.%Y %H:%M") }}</span>
+                        <div class="text-secondary mt-3" style="font-size:13px;">{{ a.original_filename }}</div>
                     </div>
-                    <p class="text-secondary" style="font-size:13px;margin:8px 0;">{{ t.description }}</p>
-                    <div class="task-phrase">"{{ t.target_phrase }}"</div>
+                    <div class="text-right">
+                        <div class="stat-value" style="font-size:24px;">{{ "%.0f"|format(a.overall_score) }}</div>
+                        <div class="text-muted" style="font-size:11px;">из 100</div>
+                    </div>
                 </div>
-                {% endfor %}
-            {% else %}
-                <p class="text-muted">Заданий пока нет.</p>
-            {% endif %}
+            </a>
+            {% endfor %}
+        {% else %}
+            <div class="card text-center" style="padding:40px;">
+                <p class="text-secondary">Пока нет попыток. <a href="/upload">Загрузите первое аудио</a>.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Модалка задания -->
+<div id="taskModal" class="modal-overlay" style="display:none;" onclick="closeTaskModalIfOverlay(event)">
+    <div class="modal-card" onclick="event.stopPropagation();">
+        <div class="d-flex justify-between align-center mb-3">
+            <h2 id="modalTitle" style="margin:0;">Задание</h2>
+            <button class="btn btn-secondary btn-sm" onclick="closeTaskModal()">✕</button>
+        </div>
+        <div class="text-muted mb-3" style="font-size:13px;">
+            <span id="modalSound" class="badge badge-info"></span>
+            <span id="modalDifficulty" class="badge"></span>
         </div>
 
-        <div class="card">
-            <div class="d-flex justify-between align-center mb-4">
-                <h3 style="margin:0;">🕒 Последние попытки</h3>
-                <a href="/history" class="text-secondary" style="font-size:13px;text-decoration:none;">Все →</a>
+        <div class="phrase-box">
+            <strong style="color:var(--accent);">Произнесите фразу:</strong><br><br>
+            <span id="modalPhrase" style="font-size:20px;"></span>
+        </div>
+
+        <div id="modalRecBlock" style="text-align:center;margin-top:24px;">
+            <button id="modalMicBtn" class="mic-button" type="button">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+            </button>
+            <div class="recording-timer" id="modalTimer">00:00</div>
+            <div id="modalHint" class="text-muted">Нажмите на микрофон, чтобы начать запись</div>
+            <audio id="modalPreview" controls style="display:none;width:100%;margin-top:16px;"></audio>
+            <div id="modalActions" style="display:none;margin-top:16px;" class="d-flex gap-2">
+                <button id="modalRetry" class="btn btn-secondary" style="flex:1;justify-content:center;">Перезаписать</button>
+                <button id="modalSend" class="btn btn-primary" style="flex:1;justify-content:center;">🚀 Отправить на анализ</button>
             </div>
-            {% if attempts %}
-                {% for a in attempts[:5] %}
-                <div class="d-flex justify-between align-center" style="padding:10px 0;border-bottom:1px solid var(--border);">
-                    <div>
-                        <div style="font-weight:600;font-size:14px;">#{{ a.id }} • {{ a.original_filename[:24] }}</div>
-                        <div class="text-muted" style="font-size:12px;">{{ a.created_at.strftime("%d.%m %H:%M") }}</div>
-                    </div>
-                    <a href="/attempt/{{ a.id }}" class="badge {% if a.overall_score >= 80 %}badge-success{% elif a.overall_score >= 60 %}badge-warning{% else %}badge-danger{% endif %}" style="text-decoration:none;">
-                        {{ "%.0f"|format(a.overall_score) }}
-                    </a>
-                </div>
-                {% endfor %}
-            {% else %}
-                <p class="text-muted">Пока нет загруженных записей.</p>
-                <a href="/upload" class="btn btn-primary mt-3">Загрузить первую</a>
-            {% endif %}
+        </div>
+
+        <div id="modalProcessing" style="display:none;text-align:center;padding:24px;">
+            <div class="spinner"></div>
+            <p>Анализируем запись...</p>
         </div>
     </div>
 </div>
 
-{% if scores_history %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const ctx = document.getElementById('progressChart').getContext('2d');
-const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-gradient.addColorStop(0, 'rgba(139, 92, 246, 0.4)');
-gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
-new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: {{ scores_history|tojson }}.map((_, i) => 'Попытка ' + (i+1)),
-        datasets: [{
-            label: 'Оценка',
-            data: {{ scores_history|tojson }},
-            borderColor: '#8b5cf6',
-            backgroundColor: gradient,
-            fill: true,
-            tension: 0.4,
-            pointBackgroundColor: '#ec4899',
-            pointBorderColor: '#fff',
-            pointRadius: 5
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a0a0c0' } },
-            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a0a0c0' }, min: 0, max: 100 }
+// Табы
+document.querySelectorAll('.tab-button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        document.getElementById('tab-tasks').style.display = tab === 'tasks' ? 'block' : 'none';
+        document.getElementById('tab-history').style.display = tab === 'history' ? 'block' : 'none';
+    });
+});
+
+// === Модалка задания ===
+let modalRecorder = null;
+let modalChunks = [];
+let modalStream = null;
+let modalInterval = null;
+let modalSeconds = 0;
+let modalBlob = null;
+
+function pickMime() {
+    const opts = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+    for (const t of opts) if (MediaRecorder.isTypeSupported(t)) return t;
+    return '';
+}
+
+function fmt(s) {
+    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+
+function openTaskModal(card) {
+    document.getElementById('modalTitle').textContent = card.dataset.taskTitle;
+    document.getElementById('modalPhrase').textContent = card.dataset.taskPhrase;
+    document.getElementById('modalSound').textContent = '🎯 ' + card.dataset.taskSound;
+    const diff = card.dataset.taskDifficulty;
+    const diffEl = document.getElementById('modalDifficulty');
+    diffEl.textContent = diff;
+    diffEl.className = 'badge ' + (diff === 'hard' ? 'badge-danger' : diff === 'medium' ? 'badge-warning' : 'badge-success');
+    resetModalRecording();
+    document.getElementById('taskModal').style.display = 'flex';
+}
+
+function closeTaskModal() {
+    document.getElementById('taskModal').style.display = 'none';
+    if (modalRecorder && modalRecorder.state === 'recording') {
+        modalRecorder.stop();
+    }
+    if (modalStream) modalStream.getTracks().forEach(t => t.stop());
+}
+
+function closeTaskModalIfOverlay(event) {
+    if (event.target.id === 'taskModal') closeTaskModal();
+}
+
+function resetModalRecording() {
+    modalBlob = null;
+    modalChunks = [];
+    modalSeconds = 0;
+    document.getElementById('modalTimer').textContent = '00:00';
+    document.getElementById('modalHint').textContent = 'Нажмите на микрофон, чтобы начать запись';
+    document.getElementById('modalPreview').style.display = 'none';
+    document.getElementById('modalActions').style.display = 'none';
+    document.getElementById('modalRecBlock').style.display = 'block';
+    document.getElementById('modalProcessing').style.display = 'none';
+    document.getElementById('modalMicBtn').classList.remove('recording');
+}
+
+async function startModalRec() {
+    try {
+        modalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        modalChunks = [];
+        const mime = pickMime();
+        modalRecorder = mime ? new MediaRecorder(modalStream, { mimeType: mime }) : new MediaRecorder(modalStream);
+        modalRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) modalChunks.push(e.data); };
+        modalRecorder.onstop = () => {
+            const blobType = modalRecorder.mimeType || 'audio/webm';
+            modalBlob = new Blob(modalChunks, { type: blobType });
+            const preview = document.getElementById('modalPreview');
+            preview.src = URL.createObjectURL(modalBlob);
+            preview.style.display = 'block';
+            document.getElementById('modalActions').style.display = 'flex';
+            document.getElementById('modalHint').textContent = 'Прослушайте и отправьте на анализ';
+            modalStream.getTracks().forEach(t => t.stop());
+        };
+        modalRecorder.start();
+        modalSeconds = 0;
+        document.getElementById('modalTimer').textContent = '00:00';
+        modalInterval = setInterval(() => {
+            modalSeconds++;
+            document.getElementById('modalTimer').textContent = fmt(modalSeconds);
+            if (modalSeconds >= 30) stopModalRec();
+        }, 1000);
+        document.getElementById('modalMicBtn').classList.add('recording');
+        document.getElementById('modalHint').textContent = '🔴 Запись... Нажмите ещё раз, чтобы остановить';
+    } catch (e) {
+        alert('Не удалось получить доступ к микрофону: ' + e.message);
+    }
+}
+
+function stopModalRec() {
+    if (modalRecorder && modalRecorder.state === 'recording') {
+        modalRecorder.stop();
+        clearInterval(modalInterval);
+        document.getElementById('modalMicBtn').classList.remove('recording');
+    }
+}
+
+document.getElementById('modalMicBtn').addEventListener('click', () => {
+    if (!modalRecorder || modalRecorder.state === 'inactive') startModalRec();
+    else stopModalRec();
+});
+
+document.getElementById('modalRetry').addEventListener('click', resetModalRecording);
+
+document.getElementById('modalSend').addEventListener('click', async () => {
+    if (!modalBlob) return;
+    document.getElementById('modalRecBlock').style.display = 'none';
+    document.getElementById('modalProcessing').style.display = 'block';
+    const ext = modalBlob.type.includes('mp4') ? 'mp4' : (modalBlob.type.includes('ogg') ? 'ogg' : 'webm');
+    const fd = new FormData();
+    fd.append('file', modalBlob, `task_recording.${ext}`);
+    try {
+        const resp = await fetch('/api/user/upload', { method: 'POST', body: fd });
+        const data = await resp.json();
+        if (resp.ok) {
+            window.location = data.redirect;
+        } else {
+            alert('Ошибка: ' + JSON.stringify(data));
+            resetModalRecording();
         }
+    } catch (e) {
+        alert('Сетевая ошибка: ' + e.message);
+        resetModalRecording();
     }
 });
 </script>
-{% endif %}
 {% endblock %}
