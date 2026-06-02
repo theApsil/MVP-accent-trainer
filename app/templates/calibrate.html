@@ -34,7 +34,7 @@
 
         <audio id="preview" controls style="display:none;width:100%;margin-top:16px;"></audio>
 
-        <div id="actions" style="display:none;margin-top:24px;" class="d-flex gap-2" >
+        <div id="actions" style="display:none;margin-top:24px;" class="d-flex gap-2">
             <button id="retryBtn" class="btn btn-secondary" style="flex:1;justify-content:center;">Перезаписать</button>
             <button id="sendBtn" class="btn btn-primary" style="flex:1;justify-content:center;">Отправить на калибровку</button>
         </div>
@@ -63,14 +63,24 @@ function fmtTime(s) {
     return `${m}:${ss}`;
 }
 
+function pickMime() {
+    const options = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+    for (const t of options) {
+        if (MediaRecorder.isTypeSupported(t)) return t;
+    }
+    return '';
+}
+
 async function startRec() {
     try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         chunks = [];
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+        const mime = pickMime();
+        mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
         mediaRecorder.onstop = () => {
-            recordedBlob = new Blob(chunks, { type: 'audio/webm' });
+            const blobType = mediaRecorder.mimeType || 'audio/webm';
+            recordedBlob = new Blob(chunks, { type: blobType });
             preview.src = URL.createObjectURL(recordedBlob);
             preview.style.display = 'block';
             actions.style.display = 'flex';
@@ -120,8 +130,9 @@ document.getElementById('sendBtn').addEventListener('click', async () => {
     preview.style.display = 'none';
     processBlock.style.display = 'block';
 
+    const ext = recordedBlob.type.includes('mp4') ? 'mp4' : (recordedBlob.type.includes('ogg') ? 'ogg' : 'webm');
     const fd = new FormData();
-    fd.append('file', recordedBlob, 'calibration.webm');
+    fd.append('file', recordedBlob, `calibration.${ext}`);
     try {
         const resp = await fetch('/api/user/calibrate', { method: 'POST', body: fd });
         const data = await resp.json();

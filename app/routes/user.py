@@ -2,7 +2,7 @@ import io
 import random
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -12,7 +12,7 @@ from app.database import get_db
 from app.models import Attempt, PronunciationError, PronunciationMatch, Task, UserProfile
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-UPLOADS_DIR = BASE_DIR / "uploads"
+UPLOADS_DIR = BASE_DIR.parent / "uploads"
 
 router = APIRouter()
 
@@ -132,4 +132,97 @@ async def upload_audio(file: UploadFile = File(...),
         ))
     db.commit()
 
-    return
+    return {"attempt_id": attempt.id, "redirect": f"/attempt/{attempt.id}"}
+
+
+@router.post("/calibrate")
+async def calibrate(file: UploadFile = File(...),
+                    user=Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    """Сохраняет калибровочное аудио и формирует профиль."""
+    ext = "webm"
+    if file.filename:
+        for candidate in ("mp4", "ogg", "wav", "webm"):
+            if file.filename.lower().endswith("." + candidate):
+                ext = candidate
+                break
+
+    filename = f"{user['username']}_calibration.{ext}"
+    path = UPLOADS_DIR / filename
+    path.write_bytes(await file.read())
+
+    weak = random.sample(SOUND_GROUPS, k=random.randint(2, 4))
+
+    profile = db.query(UserProfile).filter(UserProfile.username == user["username"]).first()
+    if profile:
+        profile.is_calibrated = True
+        profile.calibration_audio = f"/uploads/{filename}"
+        profile.weak_sounds = ",".join(weak)
+        profile.avg_pitch = round(random.uniform(110, 220), 1)
+        profile.speech_rate = round(random.uniform(2.5, 4.5), 2)
+    else:
+        profile = UserProfile(
+            username=user["username"],
+            is_calibrated=True,
+            calibration_audio=f"/uploads/{filename}",
+            weak_sounds=",".join(weak),
+            avg_pitch=round(random.uniform(110, 220), 1),
+            speech_rate=round(random.uniform(2.5, 4.5), 2),
+        )
+        db.add(profile)
+    db.commit()
+
+    tasks_added = _generate_tasks_for_user(user["username"], weak, db)
+
+    return {
+        "ok": True,
+        "weak_sounds": weak,
+        "tasks_generated": tasks_added,
+        "redirect": "/dashboard",
+    }
+
+
+@router.get("/export/{attempt_id}")
+def export_pdf(attempt_id: int, user=Depends(get_current_user), db: Session = Depends(get_db)):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
+    attempt = db.query(Attempt).filter(Attempt.id == attempt_id).first()
+    if not attempt or attempt.username != user["username"]:
+        raise HTTPException(404, "Попытка не найдена")
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = [
+        Paragraph(f"<b>Pronunciation Analysis Report #{attempt.id}</b>", styles["Title"]),
+        Spacer(1, 12),
+        Paragraph(f"User: {attempt.username}", styles["Normal"]),
+        Paragraph(f"Date: {attempt.created_at:%Y-%m-%d %H:%M}", styles["Normal"]),
+        Paragraph(f"File: {attempt.original_filename}", styles["Normal"]),
+        Paragraph(f"Overall score: {attempt.overall_score:.1f} / 100", styles["Normal"]),
+        Spacer(1, 12),
+        Paragraph("<b>Recognized text:</b>", styles["Heading2"]),
+        Paragraph(attempt.recognized_text or "—", styles["Normal"]),
+        Spacer(1, 12),
+        Paragraph("<b>Detected errors:</b>", styles["Heading2"]),
+    ]
+    for i, err in enumerate(attempt.errors, 1):
+        story.append(Paragraph(
+            f"<b>{i}. {err.word}</b> ({err.error_type}, severity: {err.severity})", styles["Normal"]
+        ))
+        story.append(Paragraph(err.description, styles["Normal"]))
+        story.append(Spacer(1, 8))
+
+    if attempt.matches:
+        story.append(Paragraph("<b>Correct pronunciations:</b>", styles["Heading2"]))
+        for m in attempt.matches:
+            story.append(Paragraph(f"✓ {m.word} — {m.note}", styles["Normal"]))
+
+    doc.build(story)
+    buffer.seek(0)
+    return StreamingResponse(
+        buffer, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=report_{attempt.id}.pdf"},
+    )

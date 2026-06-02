@@ -160,14 +160,24 @@ function fmtTime(s) {
     return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
 }
 
+function pickMime() {
+    const options = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+    for (const t of options) {
+        if (MediaRecorder.isTypeSupported(t)) return t;
+    }
+    return '';
+}
+
 async function startRecording() {
     try {
         recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         recChunks = [];
-        recMediaRecorder = new MediaRecorder(recStream);
-        recMediaRecorder.ondataavailable = e => { if (e.data.size > 0) recChunks.push(e.data); };
+        const mime = pickMime();
+        recMediaRecorder = mime ? new MediaRecorder(recStream, { mimeType: mime }) : new MediaRecorder(recStream);
+        recMediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) recChunks.push(e.data); };
         recMediaRecorder.onstop = () => {
-            recBlob = new Blob(recChunks, { type: 'audio/webm' });
+            const blobType = recMediaRecorder.mimeType || 'audio/webm';
+            recBlob = new Blob(recChunks, { type: blobType });
             recPreview.src = URL.createObjectURL(recBlob);
             recPreview.style.display = 'block';
             recActions.style.display = 'flex';
@@ -212,8 +222,9 @@ document.getElementById('recRetry').addEventListener('click', () => {
 
 document.getElementById('recSend').addEventListener('click', async () => {
     if (!recBlob) return;
+    const ext = recBlob.type.includes('mp4') ? 'mp4' : (recBlob.type.includes('ogg') ? 'ogg' : 'webm');
     const data = new FormData();
-    data.append('file', recBlob, 'recording.webm');
+    data.append('file', recBlob, `recording.${ext}`);
     await sendAudio(data);
 });
 
