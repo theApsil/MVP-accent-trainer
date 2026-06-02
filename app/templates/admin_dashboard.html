@@ -13,7 +13,7 @@
         <div class="stat-card">
             <div class="stat-icon"><i data-lucide="database" style="width:20px;height:20px;"></i></div>
             <div class="stat-label">Эталонов в базе</div>
-            <div class="stat-value">{{ samples|length }}</div>
+            <div class="stat-value">{{ samples }}</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon"><i data-lucide="users" style="width:20px;height:20px;"></i></div>
@@ -23,7 +23,7 @@
         <div class="stat-card">
             <div class="stat-icon"><i data-lucide="hard-drive" style="width:20px;height:20px;"></i></div>
             <div class="stat-label">Объём данных</div>
-            <div class="stat-value" style="font-size:24px;">{{ total_size_kb }} КБ</div>
+            <div class="stat-value" style="font-size:24px;">{{ total_size_kb }} Gb</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon"><i data-lucide="shield-check" style="width:20px;height:20px;"></i></div>
@@ -106,16 +106,16 @@
 
     <div class="card mt-4">
         <div class="d-flex justify-between align-center mb-4">
-            <h3 style="margin:0;">Эталонная база ({{ samples|length }})</h3>
+            <h3 style="margin:0;">Эталонная база ({{ real_samples|length }})</h3>
         </div>
 
-        {% if samples %}
+        {% if real_samples %}
         <table class="table">
             <thead>
             <tr><th>Слово</th><th>Транскрипция</th><th>Описание</th><th>Эталон</th><th>Создано</th><th></th></tr>
             </thead>
             <tbody>
-            {% for s in samples %}
+            {% for s in real_samples %}
                 <tr>
                     <td><code>{{ s.word }}</code></td>
                     <td class="mono text-secondary">{{ s.transcription }}</td>

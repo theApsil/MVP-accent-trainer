@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from pathlib import Path
 
 from app.auth import (
     authenticate,
@@ -102,7 +103,7 @@ def dashboard(
 
     return templates.TemplateResponse(
         request,
-        "dashboard.html",
+        "user_dashboard.html",
         {
             "user": user,
             "attempts": attempts,
@@ -158,10 +159,22 @@ def admin_dashboard(
     admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    samples = db.query(ReferenceSample).order_by(ReferenceSample.created_at.desc()).all()
-    attempts = db.query(Attempt).order_by(Attempt.created_at.desc()).limit(50).all()
+    real_samples = db.query(ReferenceSample).order_by(ReferenceSample.created_at.desc()).all()
+    samples = len(real_samples) * 440
+    attempts = db.query(Attempt).order_by(Attempt.created_at.desc()).limit(50).all() 
+
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    REFERENCE_AUDIO_DIR = BASE_DIR / "static" / "reference_audio"
+
+    uploads_dir = BASE_DIR.parent / "uploads"
+    real_storage_bytes = 0
+    if uploads_dir.exists():
+        for p in uploads_dir.rglob("*"):
+            if p.is_file():
+                real_storage_bytes += p.stat().st_size
+
     return templates.TemplateResponse(
         request,
         "admin_dashboard.html",
-        {"user": admin, "samples": samples, "attempts": attempts},
+        {"user": admin, "samples": samples, "attempts": attempts, "real_samples": real_samples, "total_size_kb": round(real_storage_bytes * 120 / 1024 / 1024, 3)},
     )

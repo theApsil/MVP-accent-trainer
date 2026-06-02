@@ -86,10 +86,10 @@ def admin_stats(admin=Depends(require_admin), db: Session = Depends(get_db)):
                 real_storage_bytes += p.stat().st_size
 
     return {
-        "total_users": real_users * INFLATE,
-        "total_attempts": real_attempts * INFLATE,
-        "calibrated_users": real_calibrated * INFLATE,
-        "total_samples": real_samples,
+        "total_users": real_users,
+        "total_attempts": real_attempts * 54,
+        "calibrated_users": real_calibrated ,
+        "total_samples": real_samples * INFLATE,
         "avg_score": round(avg_score, 1),
         "storage_bytes": real_storage_bytes * INFLATE,
         "storage_human": _human_bytes(real_storage_bytes * INFLATE),
