@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Загрузка — Accent Analyzer{% endblock %}
+{% block content %}
+<div class="container" style="max-width: 720px;">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Новый анализ</h1>
+            <p class="page-subtitle">Загрузите аудиозапись для оценки произношения</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <form id="uploadForm" enctype="multipart/form-data">
+            <label for="fileInput" class="upload-zone" id="dropZone">
+                <div class="upload-icon">
+                    <i data-lucide="upload-cloud" style="width:32px;height:32px;"></i>
+                </div>
+                <div class="upload-text" id="uploadText">Перетащите файл сюда или нажмите для выбора</div>
+                <div class="upload-hint">WAV, MP3, M4A, OGG, WebM • до 25 МБ</div>
+                <input type="file" id="fileInput" name="file" accept="audio/*" style="display:none;" required>
+            </label>
+
+            <div id="fileInfo" class="mt-4" style="display:none;">
+                <div class="d-flex gap-3 align-center" style="padding:16px;background:var(--bg-secondary);border-radius:10px;">
+                    <i data-lucide="file-audio" style="width:24px;height:24px;color:var(--accent);"></i>
+                    <div style="flex:1;">
+                        <div id="fileName" style="font-weight:600;"></div>
+                        <div id="fileSize" class="text-muted" style="font-size:12px;"></div>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="resetForm()">
+                        <i data-lucide="x" style="width:14px;height:14px;"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn" class="btn btn-primary mt-4" style="width:100%;justify-content:center;display:none;">
+                <i data-lucide="sparkles" style="width:16px;height:16px;"></i>
+                Запустить анализ
+            </button>
+        </form>
+
+        <div id="processing" class="processing" style="display:none;">
+            <div class="spinner"></div>
+            <h3 style="margin:0;">Анализируем вашу запись</h3>
+            <p class="text-secondary">Это займёт от 10 до 30 секунд</p>
+            <ul class="processing-steps">
+                <li id="step1"><i data-lucide="check-circle-2" style="width:14px;height:14px;"></i> Загрузка файла</li>
+                <li id="step2"><i data-lucide="circle" style="width:14px;height:14px;"></i> Шумоподавление и нормализация</li>
+                <li id="step3"><i data-lucide="circle" style="width:14px;height:14px;"></i> Распознавание речи</li>
+                <li id="step4"><i data-lucide="circle" style="width:14px;height:14px;"></i> Анализ фонетики</li>
+                <li id="step5"><i data-lucide="circle" style="width:14px;height:14px;"></i> Формирование отчёта</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+const fileInput = document.getElementById('fileInput');
+const dropZone = document.getElementById('dropZone');
+const fileInfo = document.getElementById('fileInfo');
+const fileName = document.getElementById('fileName');
+const fileSize = document.getElementById('fileSize');
+const submitBtn = document.getElementById('submitBtn');
+const uploadText = document.getElementById('uploadText');
+
+['dragenter', 'dragover'].forEach(ev => {
+    dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+});
+['dragleave', 'drop'].forEach(ev => {
+    dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+});
+dropZone.addEventListener('drop', e => {
+    fileInput.files = e.dataTransfer.files;
+    showFile();
+});
+fileInput.addEventListener('change', showFile);
+
+function showFile() {
+    if (fileInput.files.length === 0) return;
+    const f = fileInput.files[0];
+    fileName.textContent = f.name;
+    fileSize.textContent = (f.size / 1024 / 1024).toFixed(2) + ' МБ';
+    fileInfo.style.display = 'block';
+    submitBtn.style.display = 'inline-flex';
+    uploadText.textContent = 'Файл выбран ✓';
+    lucide.createIcons();
+}
+
+function resetForm() {
+    fileInput.value = '';
+    fileInfo.style.display = 'none';
+    submitBtn.style.display = 'none';
+    uploadText.textContent = 'Перетащите файл сюда или нажмите для выбора';
+}
+
+document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!fileInput.files.length) return;
+
+    document.getElementById('uploadForm').style.display = 'none';
+    document.getElementById('processing').style.display = 'block';
+
+    const steps = ['step1', 'step2', 'step3', 'step4', 'step5'];
+    let idx = 0;
+    const animateStep = () => {
+        if (idx > 0) {
+            const prev = document.getElementById(steps[idx - 1]);
+            prev.classList.remove('active');
+            prev.classList.add('done');
+            const ic = prev.querySelector('[data-lucide]');
+            if (ic) ic.setAttribute('data-lucide', 'check-circle-2');
+        }
+        if (idx < steps.length) {
+            const cur = document.getElementById(steps[idx]);
+            cur.classList.add('active');
+            const ic = cur.querySelector('[data-lucide]');
+            if (ic) ic.setAttribute('data-lucide', 'loader-2');
+            idx++;
+            lucide.createIcons();
+            setTimeout(animateStep, 1500);
+        }
+    };
+    animateStep();
+
+    const data = new FormData();
+    data.append('file', fileInput.files[0]);
+
+    try {
+        const resp = await fetch('/api/user/upload', { method: 'POST', body: data });
+        if (resp.ok) {
+            const json = await resp.json();
+            window.location = json.redirect;
+        } else {
+            alert('Ошибка: ' + await resp.text());
+            location.reload();
+        }
+    } catch (err) {
+        alert('Ошибка сети: ' + err);
+        location.reload();
+    }
+});
+</script>
+{% endblock %}

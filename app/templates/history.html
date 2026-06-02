@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}История — Accent Analyzer{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">История попыток</h1>
+            <p class="page-subtitle">Все ваши загруженные записи и результаты анализа</p>
+        </div>
+        <a href="/upload" class="btn btn-primary">
+            <i data-lucide="upload-cloud" style="width:16px;height:16px;"></i>
+            Новый анализ
+        </a>
+    </div>
+
+    <div class="card">
+        {% if attempts %}
+        <table class="table">
+            <thead>
+            <tr><th>ID</th><th>Дата</th><th>Файл</th><th>Распознано</th><th>Оценка</th><th>Ошибок</th><th></th></tr>
+            </thead>
+            <tbody>
+            {% for a in attempts %}
+                <tr>
+                    <td class="mono text-muted">#{{ a.id }}</td>
+                    <td class="text-secondary">{{ a.created_at.strftime("%d.%m.%Y %H:%M") }}</td>
+                    <td>{{ a.original_filename }}</td>
+                    <td class="text-secondary" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;">
+                        "{{ a.recognized_text[:60] }}{% if a.recognized_text|length > 60 %}…{% endif %}"
+                    </td>
+                    <td>
+                        <span class="badge {% if a.overall_score >= 80 %}badge-success{% elif a.overall_score >= 60 %}badge-warning{% else %}badge-danger{% endif %}">
+                            {{ "%.1f"|format(a.overall_score) }}
+                        </span>
+                    </td>
+                    <td class="text-secondary">{{ a.errors|length }}</td>
+                    <td>
+                        <a href="/attempt/{{ a.id }}" class="btn btn-secondary btn-sm">Открыть</a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align:center;padding:60px;">
+            <i data-lucide="inbox" style="width:64px;height:64px;color:var(--text-muted);"></i>
+            <h3 class="mt-4">История пуста</h3>
+            <p class="text-muted">Загрузите свою первую запись для анализа</p>
+            <a href="/upload" class="btn btn-primary mt-4">Начать</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

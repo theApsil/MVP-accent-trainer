@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    }
+.<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Accent Analyzer{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script ist/umd/lucide.js"></script>
+</head>
+<body>
+{% if user %}
+<nav class="navbar">
+    <div class="navbar-container">
+        <a href="/"src="https://unpkg.com/lucide@latest/d class="brand">
+            <div class="brand-icon"><i data-lucide="audio-waveform" style="color:white;width:18px;height:18px;"></i></div>
+            <span>Accent Analyzer</span>
+        </a>
+        <div class="user-block">
+            <div class="user-info">
+                <div class="user-name">{{ user.display_name }}</div>
+                <div class="user-role">{{ user.role }}</div>
+            </div>
+            <div class="avatar">{{ user.display_name[0] }}</div>
+            <a href="/logout" class="btn btn-secondary btn-sm">
+                <i data-lucide="log-out" style="width:14px;height:14px;"></i>
+                Выйти
+            </a>
+        </div>
+    </div>
+</nav>
+{% endif %}
+
+<main>{% block content %}{% endblock %}</main>
+
+<script>
+    lucide.createIcons();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

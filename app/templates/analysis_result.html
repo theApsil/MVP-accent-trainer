@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Результат #{{ attempt.id }} — Accent Analyzer{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Результат анализа</h1>
+            <p class="page-subtitle">
+                <span class="mono">#{{ attempt.id }}</span> •
+                {{ attempt.created_at.strftime("%d.%m.%Y %H:%M") }} •
+                {{ attempt.original_filename }}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/dashboard" class="btn btn-secondary">
+                <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+                Назад
+            </a>
+            <a href="/api/user/export/{{ attempt.id }}" class="btn btn-primary">
+                <i data-lucide="file-down" style="width:16px;height:16px;"></i>
+                Экспорт PDF
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-2">
+        <div>
+            <div class="card mb-4">
+                <h3 class="card-title"><i data-lucide="quote" style="width:14px;height:14px;display:inline;vertical-align:middle;"></i> Распознанная речь</h3>
+                <p style="font-size:20px;line-height:1.6;margin:8px 0 0 0;font-style:italic;">"{{ attempt.recognized_text }}"</p>
+            </div>
+
+            <div class="card mb-4">
+                <h3 class="card-title"><i data-lucide="activity" style="width:14px;height:14px;display:inline;vertical-align:middle;"></i> Спектрограмма</h3>
+                <div class="spectrogram-wrap mt-3">
+                    <img src="{{ attempt.spectrogram_path }}" alt="Спектрограмма">
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="d-flex justify-between align-center mb-4">
+                    <h3 style="margin:0;">Обнаруженные ошибки</h3>
+                    <span class="badge badge-info">{{ attempt.errors|length }}</span>
+                </div>
+
+                {% if attempt.errors %}
+                    {% for err in attempt.errors %}
+                    <div class="error-item severity-{{ err.severity }}">
+                        <div class="d-flex justify-between align-center mb-3">
+                            <span class="error-word">{{ err.word }}</span>
+                            <div class="error-meta">
+                                <span class="badge badge-neutral">{{ err.error_type }}</span>
+                                <span class="badge {% if err.severity == 'high' %}badge-danger{% elif err.severity == 'medium' %}badge-warning{% else %}badge-info{% endif %}">
+                                    {{ err.severity }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="error-desc">{{ err.description }}</div>
+                        {% if err.reference_audio %}
+                        <div class="mt-3">
+                            <div class="text-muted mb-3" style="font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">
+                                <i data-lucide="volume-2" style="width:12px;height:12px;display:inline;vertical-align:middle;"></i>
+                                Эталонное произношение
+                            </div>
+                            <audio controls src="{{ err.reference_audio }}"></audio>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="text-align:center;padding:40px;">
+                        <i data-lucide="check-circle-2" style="width:48px;height:48px;color:var(--success);"></i>
+                        <p class="text-secondary mt-3">Отлично! Серьёзных ошибок не обнаружено.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div>
+            <div class="card mb-4" style="text-align:center;">
+                <h3 class="card-title">Общая оценка</h3>
+                <div class="score-circle mt-3">
+                    <svg viewBox="0 0 200 200" style="width:100%;height:100%;">
+                        <defs>
+                            <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#8b5cf6"/>
+                                <stop offset="50%" stop-color="#6366f1"/>
+                                <stop offset="100%" stop-color="#ec4899"/>
+                            </linearGradient>
+                        </defs>
+                        <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="14"/>
+                        <circle cx="100" cy="100" r="85" fill="none" stroke="url(#scoreGrad)" stroke-width="14"
+                                stroke-linecap="round" stroke-dasharray="534"
+                                stroke-dashoffset="{{ 534 - (534 * attempt.overall_score / 100) }}"
+                                transform="rotate(-90 100 100)"
+                                style="transition: stroke-dashoffset 1s ease;"/>
+                    </svg>
+                    <div class="score-text">
+                        <div class="score-value">{{ "%.0f"|format(attempt.overall_score) }}</div>
+                        <div class="score-label">из 100</div>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    {% if attempt.overall_score >= 80 %}
+                        <span class="badge badge-success">Отличный результат</span>
+                    {% elif attempt.overall_score >= 60 %}
+                        <span class="badge badge-warning">Хороший результат</span>
+                    {% else %}
+                        <span class="badge badge-danger">Требует работы</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <h3 class="card-title"><i data-lucide="mic" style="width:14px;height:14px;display:inline;vertical-align:middle;"></i> Ваша запись</h3>
+                <p class="text-muted" style="font-size:12px;">Очищенная от шума и нормализованная</p>
+                <audio controls src="{{ attempt.cleaned_audio_path }}" class="mt-3"></audio>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Статистика</h3>
+                <div style="margin-top:16px;">
+                    <div class="d-flex justify-between" style="padding:8px 0;border-bottom:1px solid var(--border);">
+                        <span class="text-secondary">Слов распознано</span>
+                        <strong>{{ attempt.recognized_text.split()|length }}</strong>
+                    </div>
+                    <div class="d-flex justify-between" style="padding:8px 0;border-bottom:1px solid var(--border);">
+                        <span class="text-secondary">Ошибок найдено</span>
+                        <strong>{{ attempt.errors|length }}</strong>
+                    </div>
+                    <div class="d-flex justify-between" style="padding:8px 0;">
+                        <span class="text-secondary">Высокой важности</span>
+                        <strong style="color:var(--danger);">
+                            {{ attempt.errors|selectattr("severity","equalto","high")|list|length }}
+                        </strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

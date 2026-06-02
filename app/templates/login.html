@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Вход — Accent Analyzer{% endblock %}
+{% block content %}
+<div class="login-wrapper">
+    <div class="login-card">
+        <div class="login-logo">
+            <i data-lucide="audio-waveform" style="color:white;width:32px;height:32px;"></i>
+        </div>
+        <h1 class="login-title">Accent Analyzer</h1>
+        <p class="login-subtitle">Анализ акцента на основе ИИ</p>
+
+        {% if error %}
+            <div class="alert alert-danger">
+                <i data-lucide="alert-circle" style="width:16px;height:16px;display:inline;vertical-align:middle;"></i>
+                {{ error }}
+            </div>
+        {% endif %}
+
+        <form method="post" action="/login">
+            <div class="form-group">
+                <label class="form-label">Логин</label>
+                <input type="text" name="username" class="form-control" placeholder="user или admin" required autofocus>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Пароль</label>
+                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+            </div>
+            <button class="btn btn-primary" style="width:100%; justify-content: center;">
+                <i data-lucide="log-in" style="width:16px;height:16px;"></i>
+                Войти в систему
+            </button>
+        </form>
+
+        <div class="test-creds">
+            <strong>🧪 Тестовые аккаунты:</strong><br>
+            <code>user / user</code> — обычный пользователь<br>
+            <code>admin / admin</code> — администратор
+        </div>
+    </div>
+</div>
+{% endblock %}

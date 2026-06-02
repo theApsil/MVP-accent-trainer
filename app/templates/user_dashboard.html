@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Дашборд — Accent Analyzer{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Добро пожаловать, {{ user.display_name }}</h1>
+            <p class="page-subtitle">Отслеживайте свой прогресс в улучшении произношения</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/history" class="btn btn-secondary">
+                <i data-lucide="history" style="width:16px;height:16px;"></i>
+                История
+            </a>
+            <a href="/upload" class="btn btn-primary">
+                <i data-lucide="upload-cloud" style="width:16px;height:16px;"></i>
+                Новый анализ
+            </a>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon"><i data-lucide="activity" style="width:20px;height:20px;"></i></div>
+            <div class="stat-label">Всего попыток</div>
+            <div class="stat-value">{{ total_attempts }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i data-lucide="target" style="width:20px;height:20px;"></i></div>
+            <div class="stat-label">Средняя оценка</div>
+            <div class="stat-value">{{ avg_score }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i data-lucide="trending-up" style="width:20px;height:20px;"></i></div>
+            <div class="stat-label">Прогресс</div>
+            <div class="stat-value">
+                {% if scores_history|length >= 2 %}
+                    {% set diff = scores_history[-1] - scores_history[0] %}
+                    {{ "+%.1f"|format(diff) if diff >= 0 else "%.1f"|format(diff) }}
+                {% else %}—{% endif %}
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i data-lucide="award" style="width:20px;height:20px;"></i></div>
+            <div class="stat-label">Уровень</div>
+            <div class="stat-value" style="font-size:24px;">
+                {% if avg_score >= 80 %}Advanced
+                {% elif avg_score >= 60 %}Intermediate
+                {% elif avg_score > 0 %}Beginner
+                {% else %}—{% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if scores_history %}
+    <div class="card mb-4">
+        <h3 class="card-title">Динамика оценок</h3>
+        <canvas id="progressChart" height="80"></canvas>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="d-flex justify-between align-center mb-4">
+            <h3 style="margin:0;">Последние попытки</h3>
+            <a href="/history" class="text-secondary" style="font-size:14px;text-decoration:none;">Все попытки →</a>
+        </div>
+
+        {% if attempts %}
+        <table class="table">
+            <thead>
+            <tr><th>#</th><th>Дата</th><th>Файл</th><th>Оценка</th><th>Ошибок</th><th></th></tr>
+            </thead>
+            <tbody>
+            {% for a in attempts %}
+                <tr>
+                    <td class="mono text-muted">#{{ a.id }}</td>
+                    <td class="text-secondary">{{ a.created_at.strftime("%d.%m.%Y %H:%M") }}</td>
+                    <td>{{ a.original_filename }}</td>
+                    <td>
+                        <span class="badge {% if a.overall_score >= 80 %}badge-success{% elif a.overall_score >= 60 %}badge-warning{% else %}badge-danger{% endif %}">
+                            {{ "%.1f"|format(a.overall_score) }} / 100
+                        </span>
+                    </td>
+                    <td class="text-secondary">{{ a.errors|length }}</td>
+                    <td>
+                        <a href="/attempt/{{ a.id }}" class="btn btn-secondary btn-sm">
+                            Открыть <i data-lucide="arrow-right" style="width:12px;height:12px;"></i>
+                        </a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align:center; padding:60px 20px;">
+            <i data-lucide="inbox" style="width:48px;height:48px;color:var(--text-muted);"></i>
+            <p class="text-muted mt-3">Пока нет загруженных записей</p>
+            <a href="/upload" class="btn btn-primary mt-3">Загрузить первую запись</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if scores_history %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const ctx = document.getElementById('progressChart').getContext('2d');
+const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+gradient.addColorStop(0, 'rgba(139, 92, 246, 0.4)');
+gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: {{ scores_history|tojson }}.map((_, i) => 'Попытка ' + (i+1)),
+        datasets: [{
+            label: 'Оценка',
+            data: {{ scores_history|tojson }},
+            borderColor: '#8b5cf6',
+            backgroundColor: gradient,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#ec4899',
+            pointBorderColor: '#fff',
+            pointRadius: 5,
+            pointHoverRadius: 7,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a0a0c0' } },
+            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a0a0c0' }, min: 0, max: 100 }
+        }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}
