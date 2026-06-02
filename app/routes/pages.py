@@ -1,9 +1,14 @@
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user, get_current_user_optional, require_admin
+from app.auth import (
+    authenticate,
+    get_current_user,
+    get_current_user_optional,
+    require_admin,
+)
 from app.database import get_db
 from app.models import Attempt, ReferenceSample, Task, UserProfile
 
@@ -11,21 +16,50 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 
+# ============ AUTH ============
+
 @router.get("/", response_class=HTMLResponse)
 def index(request: Request):
-    user = get_current_user_optional(request)
-    if user:
+    if get_current_user_optional(request):
         return RedirectResponse("/dashboard", status_code=302)
-    return templates.TemplateResponse(request, "login.html", {"user": None})
+    return RedirectResponse("/login", status_code=302)
 
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    user = get_current_user_optional(request)
-    if user:
+    if get_current_user_optional(request):
         return RedirectResponse("/dashboard", status_code=302)
     return templates.TemplateResponse(request, "login.html", {"user": None})
 
+
+@router.post("/login", response_class=HTMLResponse)
+def login_submit(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+):
+    user = authenticate(username, password)
+    if not user:
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {"user": None, "error": "Неверный логин или пароль"},
+        )
+    request.session["user"] = user
+    # Админа отправляем в админку, обычного — на дашборд
+    if user["role"] == "admin":
+        return RedirectResponse("/admin", status_code=302)
+    return RedirectResponse("/dashboard", status_code=302)
+
+
+@router.api_route("/logout", methods=["GET", "POST"])
+def logout(request: Request):
+    """Чистит сессию и редиректит на /login."""
+    request.session.clear()
+    return RedirectResponse("/login", status_code=302)
+
+
+# ============ USER PAGES ============
 
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(
@@ -47,7 +81,9 @@ def dashboard(
         .all()
     )
 
-    tasks_q = db.query(Task).filter(Task.username == user["username"], Task.is_completed == False)
+    tasks_q = db.query(Task).filter(
+        Task.username == user["username"], Task.is_completed == False
+    )
     if difficulty and difficulty in ("easy", "medium", "hard"):
         tasks_q = tasks_q.filter(Task.difficulty == difficulty)
     if sound:
@@ -66,7 +102,7 @@ def dashboard(
 
     return templates.TemplateResponse(
         request,
-        "user_dashboard.html",
+        "dashboard.html",
         {
             "user": user,
             "attempts": attempts,
@@ -81,7 +117,11 @@ def dashboard(
 
 
 @router.get("/upload", response_class=HTMLResponse)
-def upload_page(request: Request, user=Depends(get_current_user), db: Session = Depends(get_db)):
+def upload_page(
+    request: Request,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     profile = db.query(UserProfile).filter(UserProfile.username == user["username"]).first()
     if not profile or not profile.is_calibrated:
         return RedirectResponse("/calibrate", status_code=302)
@@ -109,6 +149,8 @@ def attempt_page(
         {"user": user, "attempt": attempt},
     )
 
+
+# ============ ADMIN ============
 
 @router.get("/admin", response_class=HTMLResponse)
 def admin_dashboard(
