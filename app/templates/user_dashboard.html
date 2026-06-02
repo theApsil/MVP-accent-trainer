@@ -4,100 +4,100 @@
 <div class="container">
     <div class="page-header">
         <div>
-            <h1 class="page-title">Добро пожаловать, {{ user.display_name }}</h1>
-            <p class="page-subtitle">Отслеживайте свой прогресс в улучшении произношения</p>
+            <h1 class="page-title">Привет, {{ user.display_name }}!</h1>
+            <p class="page-subtitle">Ваш персональный тренер произношения</p>
         </div>
         <div class="d-flex gap-2">
-            <a href="/history" class="btn btn-secondary">
-                <i data-lucide="history" style="width:16px;height:16px;"></i>
-                История
-            </a>
-            <a href="/upload" class="btn btn-primary">
-                <i data-lucide="upload-cloud" style="width:16px;height:16px;"></i>
-                Новый анализ
-            </a>
+            <a href="/tasks" class="btn btn-secondary">📚 Задания</a>
+            <a href="/history" class="btn btn-secondary">📜 История</a>
+            <a href="/upload" class="btn btn-primary">🎙 Новый анализ</a>
         </div>
     </div>
 
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="stat-icon"><i data-lucide="activity" style="width:20px;height:20px;"></i></div>
             <div class="stat-label">Всего попыток</div>
             <div class="stat-value">{{ total_attempts }}</div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon"><i data-lucide="target" style="width:20px;height:20px;"></i></div>
             <div class="stat-label">Средняя оценка</div>
             <div class="stat-value">{{ avg_score }}</div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon"><i data-lucide="trending-up" style="width:20px;height:20px;"></i></div>
-            <div class="stat-label">Прогресс</div>
-            <div class="stat-value">
-                {% if scores_history|length >= 2 %}
-                    {% set diff = scores_history[-1] - scores_history[0] %}
-                    {{ "+%.1f"|format(diff) if diff >= 0 else "%.1f"|format(diff) }}
-                {% else %}—{% endif %}
-            </div>
+            <div class="stat-label">Темп речи</div>
+            <div class="stat-value" style="font-size:24px;">{{ profile.speech_rate }} сл/сек</div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon"><i data-lucide="award" style="width:20px;height:20px;"></i></div>
-            <div class="stat-label">Уровень</div>
-            <div class="stat-value" style="font-size:24px;">
-                {% if avg_score >= 80 %}Advanced
-                {% elif avg_score >= 60 %}Intermediate
-                {% elif avg_score > 0 %}Beginner
-                {% else %}—{% endif %}
-            </div>
+            <div class="stat-label">Высота голоса</div>
+            <div class="stat-value" style="font-size:24px;">{{ profile.avg_pitch }} Hz</div>
         </div>
     </div>
 
+    {% if weak_sounds %}
+    <div class="card mb-4">
+        <h3 class="card-title">🎯 Ваши проблемные звуки (по калибровке)</h3>
+        <div class="d-flex gap-2 mt-3" style="flex-wrap:wrap;">
+            {% for s in weak_sounds %}
+                <span class="badge badge-warning" style="font-size:13px;padding:6px 12px;">{{ s }}</span>
+            {% endfor %}
+        </div>
+        <p class="text-muted mt-3" style="font-size:13px;">
+            Задания ниже подобраны специально для вашего профиля произношения.
+        </p>
+    </div>
+    {% endif %}
+
     {% if scores_history %}
     <div class="card mb-4">
-        <h3 class="card-title">Динамика оценок</h3>
+        <h3 class="card-title">📈 Динамика оценок</h3>
         <canvas id="progressChart" height="80"></canvas>
     </div>
     {% endif %}
 
-    <div class="card">
-        <div class="d-flex justify-between align-center mb-4">
-            <h3 style="margin:0;">Последние попытки</h3>
-            <a href="/history" class="text-secondary" style="font-size:14px;text-decoration:none;">Все попытки →</a>
+    <div class="grid grid-2">
+        <div class="card">
+            <div class="d-flex justify-between align-center mb-4">
+                <h3 style="margin:0;">📚 Персональные задания</h3>
+                <a href="/tasks" class="text-secondary" style="font-size:13px;text-decoration:none;">Все задания →</a>
+            </div>
+            {% if tasks %}
+                {% for t in tasks %}
+                <div class="task-card mb-3">
+                    <div class="d-flex justify-between align-center">
+                        <strong>{{ t.title }}</strong>
+                        <span class="badge {% if t.difficulty == 'hard' %}badge-danger{% elif t.difficulty == 'medium' %}badge-warning{% else %}badge-info{% endif %}">{{ t.difficulty }}</span>
+                    </div>
+                    <p class="text-secondary" style="font-size:13px;margin:8px 0;">{{ t.description }}</p>
+                    <div class="task-phrase">"{{ t.target_phrase }}"</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted">Заданий пока нет.</p>
+            {% endif %}
         </div>
 
-        {% if attempts %}
-        <table class="table">
-            <thead>
-            <tr><th>#</th><th>Дата</th><th>Файл</th><th>Оценка</th><th>Ошибок</th><th></th></tr>
-            </thead>
-            <tbody>
-            {% for a in attempts %}
-                <tr>
-                    <td class="mono text-muted">#{{ a.id }}</td>
-                    <td class="text-secondary">{{ a.created_at.strftime("%d.%m.%Y %H:%M") }}</td>
-                    <td>{{ a.original_filename }}</td>
-                    <td>
-                        <span class="badge {% if a.overall_score >= 80 %}badge-success{% elif a.overall_score >= 60 %}badge-warning{% else %}badge-danger{% endif %}">
-                            {{ "%.1f"|format(a.overall_score) }} / 100
-                        </span>
-                    </td>
-                    <td class="text-secondary">{{ a.errors|length }}</td>
-                    <td>
-                        <a href="/attempt/{{ a.id }}" class="btn btn-secondary btn-sm">
-                            Открыть <i data-lucide="arrow-right" style="width:12px;height:12px;"></i>
-                        </a>
-                    </td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div style="text-align:center; padding:60px 20px;">
-            <i data-lucide="inbox" style="width:48px;height:48px;color:var(--text-muted);"></i>
-            <p class="text-muted mt-3">Пока нет загруженных записей</p>
-            <a href="/upload" class="btn btn-primary mt-3">Загрузить первую запись</a>
+        <div class="card">
+            <div class="d-flex justify-between align-center mb-4">
+                <h3 style="margin:0;">🕒 Последние попытки</h3>
+                <a href="/history" class="text-secondary" style="font-size:13px;text-decoration:none;">Все →</a>
+            </div>
+            {% if attempts %}
+                {% for a in attempts[:5] %}
+                <div class="d-flex justify-between align-center" style="padding:10px 0;border-bottom:1px solid var(--border);">
+                    <div>
+                        <div style="font-weight:600;font-size:14px;">#{{ a.id }} • {{ a.original_filename[:24] }}</div>
+                        <div class="text-muted" style="font-size:12px;">{{ a.created_at.strftime("%d.%m %H:%M") }}</div>
+                    </div>
+                    <a href="/attempt/{{ a.id }}" class="badge {% if a.overall_score >= 80 %}badge-success{% elif a.overall_score >= 60 %}badge-warning{% else %}badge-danger{% endif %}" style="text-decoration:none;">
+                        {{ "%.0f"|format(a.overall_score) }}
+                    </a>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted">Пока нет загруженных записей.</p>
+                <a href="/upload" class="btn btn-primary mt-3">Загрузить первую</a>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
 </div>
 
@@ -121,8 +121,7 @@ new Chart(ctx, {
             tension: 0.4,
             pointBackgroundColor: '#ec4899',
             pointBorderColor: '#fff',
-            pointRadius: 5,
-            pointHoverRadius: 7,
+            pointRadius: 5
         }]
     },
     options: {

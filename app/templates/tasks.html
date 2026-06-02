@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Задания — Accent Analyzer{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Персональные задания</h1>
+            <p class="page-subtitle">Сгенерированы на основе вашего профиля произношения</p>
+        </div>
+        <a href="/dashboard" class="btn btn-secondary">← Назад</a>
+    </div>
+
+    {% if tasks %}
+    <div class="grid grid-3">
+        {% for t in tasks %}
+        <div class="task-card">
+            <div class="d-flex justify-between align-center mb-3">
+                <span class="badge badge-info">{{ t.target_sounds }}</span>
+                <span class="badge {% if t.difficulty == 'hard' %}badge-danger{% elif t.difficulty == 'medium' %}badge-warning{% else %}badge-info{% endif %}">{{ t.difficulty }}</span>
+            </div>
+            <h4 style="margin:8px 0;">{{ t.title }}</h4>
+            <p class="text-secondary" style="font-size:13px;">{{ t.description }}</p>
+            <div class="task-phrase">"{{ t.target_phrase }}"</div>
+            <a href="/upload" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;margin-top:8px;">🎙 Записать</a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card" style="text-align:center;padding:60px;">
+        <p class="text-muted">Заданий пока нет.</p>
+        <a href="/calibrate" class="btn btn-primary mt-3">Пройти калибровку</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

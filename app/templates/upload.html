@@ -5,56 +5,96 @@
     <div class="page-header">
         <div>
             <h1 class="page-title">Новый анализ</h1>
-            <p class="page-subtitle">Загрузите аудиозапись для оценки произношения</p>
+            <p class="page-subtitle">Загрузите файл или запишите голос напрямую</p>
         </div>
     </div>
 
+    <div class="tab-buttons">
+        <button class="tab-button active" data-tab="file" type="button">📁 Загрузить файл</button>
+        <button class="tab-button" data-tab="record" type="button">🎙 Записать с микрофона</button>
+    </div>
+
     <div class="card">
-        <form id="uploadForm" enctype="multipart/form-data">
-            <label for="fileInput" class="upload-zone" id="dropZone">
-                <div class="upload-icon">
-                    <i data-lucide="upload-cloud" style="width:32px;height:32px;"></i>
-                </div>
-                <div class="upload-text" id="uploadText">Перетащите файл сюда или нажмите для выбора</div>
-                <div class="upload-hint">WAV, MP3, M4A, OGG, WebM • до 25 МБ</div>
-                <input type="file" id="fileInput" name="file" accept="audio/*" style="display:none;" required>
-            </label>
-
-            <div id="fileInfo" class="mt-4" style="display:none;">
-                <div class="d-flex gap-3 align-center" style="padding:16px;background:var(--bg-secondary);border-radius:10px;">
-                    <i data-lucide="file-audio" style="width:24px;height:24px;color:var(--accent);"></i>
-                    <div style="flex:1;">
-                        <div id="fileName" style="font-weight:600;"></div>
-                        <div id="fileSize" class="text-muted" style="font-size:12px;"></div>
+        <!-- TAB: загрузка файла -->
+        <div id="tab-file">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <label for="fileInput" class="upload-zone" id="dropZone">
+                    <div class="upload-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
                     </div>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="resetForm()">
-                        <i data-lucide="x" style="width:14px;height:14px;"></i>
-                    </button>
+                    <div class="upload-text" id="uploadText">Перетащите файл сюда или нажмите для выбора</div>
+                    <div class="upload-hint">WAV, MP3, M4A, OGG, WebM • до 25 МБ</div>
+                    <input type="file" id="fileInput" name="file" accept="audio/*" style="display:none;">
+                </label>
+
+                <div id="fileInfo" class="mt-4" style="display:none;">
+                    <div class="d-flex gap-3 align-center" style="padding:16px;background:var(--bg-secondary);border-radius:10px;">
+                        <div style="flex:1;">
+                            <div id="fileName" style="font-weight:600;"></div>
+                            <div id="fileSize" class="text-muted" style="font-size:12px;"></div>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="resetUpload()">✕</button>
+                    </div>
                 </div>
-            </div>
 
-            <button type="submit" id="submitBtn" class="btn btn-primary mt-4" style="width:100%;justify-content:center;display:none;">
-                <i data-lucide="sparkles" style="width:16px;height:16px;"></i>
-                Запустить анализ
+                <button type="submit" id="submitBtn" class="btn btn-primary mt-4" style="width:100%;justify-content:center;display:none;">
+                    ✨ Запустить анализ
+                </button>
+            </form>
+        </div>
+
+        <!-- TAB: запись с микрофона -->
+        <div id="tab-record" style="display:none;text-align:center;padding:20px;">
+            <button id="recBtn" class="mic-button" type="button">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
             </button>
-        </form>
+            <div class="recording-timer" id="recTimer">00:00</div>
+            <div id="recHint" class="text-muted">Нажмите на микрофон для начала записи</div>
+            <audio id="recPreview" controls style="display:none;width:100%;margin-top:16px;"></audio>
+            <div id="recActions" style="display:none;margin-top:20px;" class="d-flex gap-2">
+                <button id="recRetry" class="btn btn-secondary" style="flex:1;justify-content:center;" type="button">Перезаписать</button>
+                <button id="recSend" class="btn btn-primary" style="flex:1;justify-content:center;" type="button">🚀 Отправить на анализ</button>
+            </div>
+        </div>
 
+        <!-- Блок обработки -->
         <div id="processing" class="processing" style="display:none;">
             <div class="spinner"></div>
             <h3 style="margin:0;">Анализируем вашу запись</h3>
             <p class="text-secondary">Это займёт от 10 до 30 секунд</p>
             <ul class="processing-steps">
-                <li id="step1"><i data-lucide="check-circle-2" style="width:14px;height:14px;"></i> Загрузка файла</li>
-                <li id="step2"><i data-lucide="circle" style="width:14px;height:14px;"></i> Шумоподавление и нормализация</li>
-                <li id="step3"><i data-lucide="circle" style="width:14px;height:14px;"></i> Распознавание речи</li>
-                <li id="step4"><i data-lucide="circle" style="width:14px;height:14px;"></i> Анализ фонетики</li>
-                <li id="step5"><i data-lucide="circle" style="width:14px;height:14px;"></i> Формирование отчёта</li>
+                <li id="step1">⏳ Загрузка файла</li>
+                <li id="step2">⏳ Шумоподавление и нормализация</li>
+                <li id="step3">⏳ Распознавание речи</li>
+                <li id="step4">⏳ Анализ фонетики</li>
+                <li id="step5">⏳ Формирование отчёта</li>
             </ul>
         </div>
     </div>
 </div>
 
 <script>
+// === Переключение вкладок ===
+document.querySelectorAll('.tab-button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        document.getElementById('tab-file').style.display = tab === 'file' ? 'block' : 'none';
+        document.getElementById('tab-record').style.display = tab === 'record' ? 'block' : 'none';
+    });
+});
+
+// === Загрузка файла ===
 const fileInput = document.getElementById('fileInput');
 const dropZone = document.getElementById('dropZone');
 const fileInfo = document.getElementById('fileInfo');
@@ -63,15 +103,17 @@ const fileSize = document.getElementById('fileSize');
 const submitBtn = document.getElementById('submitBtn');
 const uploadText = document.getElementById('uploadText');
 
-['dragenter', 'dragover'].forEach(ev => {
-    dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-});
-['dragleave', 'drop'].forEach(ev => {
-    dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); });
-});
+['dragenter', 'dragover'].forEach(ev =>
+    dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); })
+);
+['dragleave', 'drop'].forEach(ev =>
+    dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); })
+);
 dropZone.addEventListener('drop', e => {
-    fileInput.files = e.dataTransfer.files;
-    showFile();
+    if (e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        showFile();
+    }
 });
 fileInput.addEventListener('change', showFile);
 
@@ -83,10 +125,9 @@ function showFile() {
     fileInfo.style.display = 'block';
     submitBtn.style.display = 'inline-flex';
     uploadText.textContent = 'Файл выбран ✓';
-    lucide.createIcons();
 }
 
-function resetForm() {
+function resetUpload() {
     fileInput.value = '';
     fileInfo.style.display = 'none';
     submitBtn.style.display = 'none';
@@ -96,48 +137,128 @@ function resetForm() {
 document.getElementById('uploadForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!fileInput.files.length) return;
+    const data = new FormData();
+    data.append('file', fileInput.files[0]);
+    await sendAudio(data);
+});
 
-    document.getElementById('uploadForm').style.display = 'none';
+// === Запись с микрофона ===
+let recMediaRecorder = null;
+let recChunks = [];
+let recStream = null;
+let recInterval = null;
+let recSeconds = 0;
+let recBlob = null;
+
+const recBtn = document.getElementById('recBtn');
+const recTimer = document.getElementById('recTimer');
+const recHint = document.getElementById('recHint');
+const recPreview = document.getElementById('recPreview');
+const recActions = document.getElementById('recActions');
+
+function fmtTime(s) {
+    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+
+async function startRecording() {
+    try {
+        recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recChunks = [];
+        recMediaRecorder = new MediaRecorder(recStream);
+        recMediaRecorder.ondataavailable = e => { if (e.data.size > 0) recChunks.push(e.data); };
+        recMediaRecorder.onstop = () => {
+            recBlob = new Blob(recChunks, { type: 'audio/webm' });
+            recPreview.src = URL.createObjectURL(recBlob);
+            recPreview.style.display = 'block';
+            recActions.style.display = 'flex';
+            recHint.textContent = 'Прослушайте и отправьте на анализ';
+            recStream.getTracks().forEach(t => t.stop());
+        };
+        recMediaRecorder.start();
+        recSeconds = 0;
+        recTimer.textContent = '00:00';
+        recInterval = setInterval(() => {
+            recSeconds++;
+            recTimer.textContent = fmtTime(recSeconds);
+            if (recSeconds >= 60) stopRecording();
+        }, 1000);
+        recBtn.classList.add('recording');
+        recHint.textContent = '🔴 Запись... Нажмите ещё раз, чтобы остановить';
+    } catch (e) {
+        alert('Не удалось получить доступ к микрофону: ' + e.message);
+    }
+}
+
+function stopRecording() {
+    if (recMediaRecorder && recMediaRecorder.state === 'recording') {
+        recMediaRecorder.stop();
+        clearInterval(recInterval);
+        recBtn.classList.remove('recording');
+    }
+}
+
+recBtn.addEventListener('click', () => {
+    if (!recMediaRecorder || recMediaRecorder.state === 'inactive') startRecording();
+    else stopRecording();
+});
+
+document.getElementById('recRetry').addEventListener('click', () => {
+    recBlob = null;
+    recPreview.style.display = 'none';
+    recActions.style.display = 'none';
+    recTimer.textContent = '00:00';
+    recHint.textContent = 'Нажмите на микрофон для начала записи';
+});
+
+document.getElementById('recSend').addEventListener('click', async () => {
+    if (!recBlob) return;
+    const data = new FormData();
+    data.append('file', recBlob, 'recording.webm');
+    await sendAudio(data);
+});
+
+// === Общая отправка с анимацией ===
+async function sendAudio(formData) {
+    document.getElementById('tab-file').style.display = 'none';
+    document.getElementById('tab-record').style.display = 'none';
+    document.querySelector('.tab-buttons').style.display = 'none';
     document.getElementById('processing').style.display = 'block';
 
     const steps = ['step1', 'step2', 'step3', 'step4', 'step5'];
-    let idx = 0;
-    const animateStep = () => {
-        if (idx > 0) {
-            const prev = document.getElementById(steps[idx - 1]);
+    let activeStepIdx = 0;
+    const stepInterval = setInterval(() => {
+        if (activeStepIdx > 0) {
+            const prev = document.getElementById(steps[activeStepIdx - 1]);
             prev.classList.remove('active');
             prev.classList.add('done');
-            const ic = prev.querySelector('[data-lucide]');
-            if (ic) ic.setAttribute('data-lucide', 'check-circle-2');
+            prev.innerHTML = '✅ ' + prev.innerHTML.replace(/^[⏳✅⏺]\s*/, '');
         }
-        if (idx < steps.length) {
-            const cur = document.getElementById(steps[idx]);
+        if (activeStepIdx < steps.length) {
+            const cur = document.getElementById(steps[activeStepIdx]);
             cur.classList.add('active');
-            const ic = cur.querySelector('[data-lucide]');
-            if (ic) ic.setAttribute('data-lucide', 'loader-2');
-            idx++;
-            lucide.createIcons();
-            setTimeout(animateStep, 1500);
+            cur.innerHTML = '⏺ ' + cur.innerHTML.replace(/^[⏳✅⏺]\s*/, '');
+            activeStepIdx++;
+        } else {
+            clearInterval(stepInterval);
         }
-    };
-    animateStep();
-
-    const data = new FormData();
-    data.append('file', fileInput.files[0]);
+    }, 1200);
 
     try {
-        const resp = await fetch('/api/user/upload', { method: 'POST', body: data });
+        const resp = await fetch('/api/user/upload', { method: 'POST', body: formData });
+        clearInterval(stepInterval);
         if (resp.ok) {
             const json = await resp.json();
             window.location = json.redirect;
         } else {
-            alert('Ошибка: ' + await resp.text());
+            const txt = await resp.text();
+            alert('Ошибка: ' + txt);
             location.reload();
         }
     } catch (err) {
-        alert('Ошибка сети: ' + err);
+        clearInterval(stepInterval);
+        alert('Ошибка сети: ' + err.message);
         location.reload();
     }
-});
+}
 </script>
 {% endblock %}

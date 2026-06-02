@@ -75,7 +75,24 @@
                 {% endif %}
             </div>
         </div>
-
+        {% if attempt.matches %}
+            <div class="card">
+                <div class="d-flex justify-between align-center mb-4">
+                    <h3 style="margin:0;">✅ Произношение совпало с эталоном</h3>
+                    <span class="badge badge-success">{{ attempt.matches|length }}</span>
+                </div>
+                {% for m in attempt.matches %}
+                <div class="match-item">
+                    <div class="match-icon">✓</div>
+                    <div>
+                        <strong class="mono">{{ m.word }}</strong>
+                        <div class="text-secondary" style="font-size:13px;">{{ m.note }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
         <div>
             <div class="card mb-4" style="text-align:center;">
                 <h3 class="card-title">Общая оценка</h3>

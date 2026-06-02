@@ -1,15 +1,20 @@
 from fastapi import HTTPException, Request, status
 
 USERS = {
-    "user": {"password": "user", "role": "user", "display_name": "Алексей Петров"},
-    "admin": {"password": "admin", "role": "admin", "display_name": "Администратор"},
+    "user": {"password": "user", "role": "user", "display_name": "Danil Goncharuk", "handle": "d.goncharuk"},
+    "admin": {"password": "admin", "role": "admin", "display_name": "Администратор", "handle": "admin"},
 }
 
 
 def authenticate(username: str, password: str) -> dict | None:
     u = USERS.get(username)
     if u and u["password"] == password:
-        return {"username": username, "role": u["role"], "display_name": u["display_name"]}
+        return {
+            "username": username,
+            "role": u["role"],
+            "display_name": u["display_name"],
+            "handle": u["handle"],
+        }
     return None
 
 

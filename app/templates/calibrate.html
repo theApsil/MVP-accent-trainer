@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Калибровка — Accent Analyzer{% endblock %}
+{% block content %}
+<div class="calibration-wrap">
+    <div class="calibration-card">
+        <h1 class="page-title" style="font-size:28px;">Калибровка микрофона</h1>
+        <p class="text-secondary">
+            Перед началом работы нам нужно понять особенности вашего произношения
+            и проверить качество записи микрофона.
+        </p>
+
+        <div class="phrase-box mt-4">
+            <strong style="color:var(--accent);">Произнесите фразу:</strong><br><br>
+            "The quick brown fox jumps over the lazy dog. I think this is really interesting."
+        </div>
+
+        <div id="micBlock">
+            <button id="micBtn" class="mic-button" type="button">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+            </button>
+            <div class="recording-timer" id="timer">00:00</div>
+            <div id="hint" class="text-muted">Нажмите на микрофон, чтобы начать запись</div>
+        </div>
+
+        <div id="processBlock" style="display:none;">
+            <div class="spinner"></div>
+            <p style="margin-top:12px;">Анализируем особенности вашей речи...</p>
+        </div>
+
+        <audio id="preview" controls style="display:none;width:100%;margin-top:16px;"></audio>
+
+        <div id="actions" style="display:none;margin-top:24px;" class="d-flex gap-2" >
+            <button id="retryBtn" class="btn btn-secondary" style="flex:1;justify-content:center;">Перезаписать</button>
+            <button id="sendBtn" class="btn btn-primary" style="flex:1;justify-content:center;">Отправить на калибровку</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let mediaRecorder = null;
+let chunks = [];
+let stream = null;
+let recordingTimer = null;
+let seconds = 0;
+let recordedBlob = null;
+
+const micBtn = document.getElementById('micBtn');
+const timer = document.getElementById('timer');
+const hint = document.getElementById('hint');
+const preview = document.getElementById('preview');
+const actions = document.getElementById('actions');
+const processBlock = document.getElementById('processBlock');
+const micBlock = document.getElementById('micBlock');
+
+function fmtTime(s) {
+    const m = Math.floor(s / 60).toString().padStart(2, '0');
+    const ss = (s % 60).toString().padStart(2, '0');
+    return `${m}:${ss}`;
+}
+
+async function startRec() {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        chunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+            recordedBlob = new Blob(chunks, { type: 'audio/webm' });
+            preview.src = URL.createObjectURL(recordedBlob);
+            preview.style.display = 'block';
+            actions.style.display = 'flex';
+            hint.textContent = 'Прослушайте запись и отправьте на анализ';
+            stream.getTracks().forEach(t => t.stop());
+        };
+        mediaRecorder.start();
+        seconds = 0;
+        timer.textContent = '00:00';
+        recordingTimer = setInterval(() => {
+            seconds++;
+            timer.textContent = fmtTime(seconds);
+            if (seconds >= 30) stopRec();
+        }, 1000);
+        micBtn.classList.add('recording');
+        hint.textContent = '🔴 Идёт запись... Нажмите ещё раз, чтобы остановить';
+    } catch (e) {
+        alert('Не удалось получить доступ к микрофону: ' + e.message);
+    }
+}
+
+function stopRec() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        clearInterval(recordingTimer);
+        micBtn.classList.remove('recording');
+    }
+}
+
+micBtn.addEventListener('click', () => {
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') startRec();
+    else stopRec();
+});
+
+document.getElementById('retryBtn').addEventListener('click', () => {
+    recordedBlob = null;
+    preview.style.display = 'none';
+    actions.style.display = 'none';
+    timer.textContent = '00:00';
+    hint.textContent = 'Нажмите на микрофон, чтобы начать запись';
+});
+
+document.getElementById('sendBtn').addEventListener('click', async () => {
+    if (!recordedBlob) return;
+    micBlock.style.display = 'none';
+    actions.style.display = 'none';
+    preview.style.display = 'none';
+    processBlock.style.display = 'block';
+
+    const fd = new FormData();
+    fd.append('file', recordedBlob, 'calibration.webm');
+    try {
+        const resp = await fetch('/api/user/calibrate', { method: 'POST', body: fd });
+        const data = await resp.json();
+        if (resp.ok) {
+            window.location = data.redirect;
+        } else {
+            alert('Ошибка: ' + JSON.stringify(data));
+            location.reload();
+        }
+    } catch (e) {
+        alert('Ошибка сети: ' + e.message);
+        location.reload();
+    }
+});
+</script>
+{% endblock %}
