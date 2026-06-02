@@ -1,6 +1,5 @@
 import csv
 import io
-import random
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -9,9 +8,9 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_admin
+from app.auth import USERS, require_admin
 from app.database import get_db
-from app.models import Attempt, ReferenceSample, User, UserProfile
+from app.models import Attempt, PronunciationError, ReferenceSample, UserProfile
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 REFERENCE_AUDIO_DIR = BASE_DIR / "static" / "reference_audio"
@@ -30,10 +29,9 @@ async def create_sample(
     category: str = Form("general"),
     difficulty: str = Form("medium"),
     file: UploadFile = File(...),
-    admin=Depends(get_current_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    # Гарантируем, что директория существует
     REFERENCE_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
     word_clean = word.strip().lower()
@@ -62,7 +60,7 @@ async def create_sample(
 
 
 @router.delete("/samples/{sample_id}")
-def delete_sample(sample_id: int, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
+def delete_sample(sample_id: int, admin=Depends(require_admin), db: Session = Depends(get_db)):
     sample = db.query(ReferenceSample).filter(ReferenceSample.id == sample_id).first()
     if not sample:
         raise HTTPException(404, "Эталон не найден")
@@ -72,15 +70,14 @@ def delete_sample(sample_id: int, admin=Depends(get_current_admin), db: Session 
 
 
 @router.get("/stats")
-def admin_stats(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
+def admin_stats(admin=Depends(require_admin), db: Session = Depends(get_db)):
     """Статистика для дашборда с искусственно увеличенными числами (x440)."""
-    real_users = db.query(User).count()
+    real_users = len(USERS)
     real_attempts = db.query(Attempt).count()
     real_calibrated = db.query(UserProfile).filter(UserProfile.is_calibrated == True).count()
     real_samples = db.query(ReferenceSample).count()
     avg_score = db.query(func.avg(Attempt.overall_score)).scalar() or 0.0
 
-    # Размер папки uploads
     uploads_dir = BASE_DIR.parent / "uploads"
     real_storage_bytes = 0
     if uploads_dir.exists():
@@ -92,11 +89,10 @@ def admin_stats(admin=Depends(get_current_admin), db: Session = Depends(get_db))
         "total_users": real_users * INFLATE,
         "total_attempts": real_attempts * INFLATE,
         "calibrated_users": real_calibrated * INFLATE,
-        "total_samples": real_samples,  # эталоны не раздуваем
+        "total_samples": real_samples,
         "avg_score": round(avg_score, 1),
         "storage_bytes": real_storage_bytes * INFLATE,
         "storage_human": _human_bytes(real_storage_bytes * INFLATE),
-        # Сырые значения тоже отдаём — вдруг пригодится
         "_real": {
             "users": real_users,
             "attempts": real_attempts,
@@ -107,32 +103,28 @@ def admin_stats(admin=Depends(get_current_admin), db: Session = Depends(get_db))
 
 
 @router.get("/analytics")
-def analytics(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
+def analytics(admin=Depends(require_admin), db: Session = Depends(get_db)):
     """JSON-аналитика для графиков с искусственным умножением."""
-    # Активность за 14 дней
     today = datetime.utcnow().date()
     days = []
     for i in range(13, -1, -1):
         d = today - timedelta(days=i)
         start = datetime.combine(d, datetime.min.time())
         end = start + timedelta(days=1)
-        real_count = db.query(Attempt).filter(Attempt.created_at >= start, Attempt.created_at < end).count()
-        days.append({
-            "date": d.strftime("%d.%m"),
-            "attempts": real_count * INFLATE,
-        })
+        real_count = db.query(Attempt).filter(
+            Attempt.created_at >= start, Attempt.created_at < end
+        ).count()
+        days.append({"date": d.strftime("%d.%m"), "attempts": real_count * INFLATE})
 
-    # Распределение по оценкам
-    buckets = [(0, 20), (20, 40), (40, 60), (60, 80), (80, 100)]
+    buckets = [(0, 20), (20, 40), (40, 60), (60, 80), (80, 101)]
     score_dist = []
     for lo, hi in buckets:
         real_count = db.query(Attempt).filter(
-            Attempt.overall_score >= lo, Attempt.overall_score < hi if hi < 100 else Attempt.overall_score <= hi
+            Attempt.overall_score >= lo, Attempt.overall_score < hi
         ).count()
-        score_dist.append({"range": f"{lo}-{hi}", "count": real_count * INFLATE})
+        label = f"{lo}-{min(hi, 100)}"
+        score_dist.append({"range": label, "count": real_count * INFLATE})
 
-    # Топ-ошибок (по типу)
-    from app.models import PronunciationError
     top_errors = (
         db.query(PronunciationError.error_type, func.count(PronunciationError.id).label("cnt"))
         .group_by(PronunciationError.error_type)
@@ -150,13 +142,13 @@ def analytics(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
 
 
 @router.get("/users/export")
-def export_users_csv(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    users = db.query(User).all()
+def export_users_csv(admin=Depends(require_admin)):
+    """Экспорт списка пользователей из словаря USERS."""
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["id", "username", "display_name", "is_admin", "created_at"])
-    for u in users:
-        writer.writerow([u.id, u.username, u.display_name, u.is_admin, u.created_at])
+    writer.writerow(["username", "display_name", "handle", "role"])
+    for username, info in USERS.items():
+        writer.writerow([username, info["display_name"], info["handle"], info["role"]])
     output.seek(0)
     return StreamingResponse(
         iter([output.getvalue()]),
@@ -165,7 +157,7 @@ def export_users_csv(admin=Depends(get_current_admin), db: Session = Depends(get
     )
 
 
-def _human_bytes(b: int) -> str:
+def _human_bytes(b: float) -> str:
     for unit in ("Б", "КБ", "МБ", "ГБ", "ТБ"):
         if b < 1024:
             return f"{b:.1f} {unit}"
