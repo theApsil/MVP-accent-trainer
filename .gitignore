@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+data/*.db
+uploads/*
+static/spectrograms/*
+!uploads/.gitkeep
+!static/spectrograms/.gitkeep
+.DS_Store
+.idea/
+.vscode/
