@@ -7,44 +7,44 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" 
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-{% if user %}
-<nav class="navbar">
-    <div class="navbar-container">
-        <a href="/" class="brhref="/static/css/style.css">and" title="На главную">
-            <div class="brand-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M2 12h2"/>
-                    <path d="M6 8v8"/>
-                    <path d="M10 4v16"/>
-                    <path d="M14 7v10"/>
-                    <path d="M18 10v4"/>
-                    <path d="M22 12h-2"/>
-                </svg>
+    {% if user %}
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="brand" title="На главную">
+                <div class="brand-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2 12h2"/>
+                        <path d="M6 8v8"/>
+                        <path d="M10 4v16"/>
+                        <path d="M14 7v10"/>
+                        <path d="M18 10v4"/>
+                        <path d="M22 12h-2"/>
+                    </svg>
+                </div>
+            </a>
+            <div class="user-block">
+                <div class="user-info">
+                    <div class="user-name">{{ user.display_name }}</div>
+                    <div class="user-handle">@{{ user.handle }}</div>
+                </div>
+                <div class="avatar">{{ user.display_name[0] }}</div>
+                <a href="/logout" class="btn btn-secondary btn-sm">Выйти</a>
             </div>
-        </a>
-        <div class="user-block">
-            <div class="user-info">
-                <div class="user-name">{{ user.display_name }}</div>
-                <div class="user-handle">@{{ user.handle }}</div>
-            </div>
-            <div class="avatar">{{ user.display_name[0] }}</div>
-            <a href="/logout" class="btn btn-secondary btn-sm">Выйти</a>
         </div>
-    </div>
-</nav>
-{% endif %}
+    </nav>
+    {% endif %}
 
-<main>{% block content %}{% endblock %}</main>
+    <main>{% block content %}{% endblock %}</main>
 
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-<script>
-    if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-    }
-</script>
-{% block scripts %}{% endblock %}
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script>
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    </script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>

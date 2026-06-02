@@ -143,13 +143,20 @@ def _seed_reference_samples() -> None:
     from app.models import ReferenceSample
 
     with SessionLocal() as session:
-        existing_count = session.query(ReferenceSample).count()
-        if existing_count >= len(REFERENCE_SAMPLES_DATA):
-            return
-
         existing_words = {s.word for s in session.query(ReferenceSample).all()}
+
+        # Дедупликация: оставляем только первое вхождение каждого слова
+        seen = set()
+        unique_data = []
+        for row in REFERENCE_SAMPLES_DATA:
+            word = row[0]
+            if word in seen:
+                continue
+            seen.add(word)
+            unique_data.append(row)
+
         added = 0
-        for word, transcription, description, category, difficulty in REFERENCE_SAMPLES_DATA:
+        for word, transcription, description, category, difficulty in unique_data:
             if word in existing_words:
                 continue
             session.add(ReferenceSample(
@@ -161,9 +168,10 @@ def _seed_reference_samples() -> None:
                 difficulty=difficulty,
             ))
             added += 1
+
         session.commit()
         if added:
-            print(f"[DB] Добавлено {added} эталонов в базу")
+            print(f"[DB] Добавлено {added} эталонов в базу (всего уникальных: {len(unique_data)})")
 
 
 def get_db():
